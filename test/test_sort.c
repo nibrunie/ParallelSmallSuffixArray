@@ -43,25 +43,23 @@ int check_sort(suffix_struct_t* ss) {
 
 int main(void) {
   suffix_struct_t ss;
+  unsigned i;
 
-#if 1
+#if 0
   const unsigned LENGTH = 6;
   //unsigned char table[] = {'B', 'A', 'N', 'A', 'N', 'A', '\0'}; 
   unsigned char table[] = {232, 232, 10, 232, 9, 232};
   ss.A = table; 
 #else
-  const unsigned LENGTH = 100;
+  const unsigned LENGTH = 100000;
   ss.A = malloc(sizeof(unsigned char) * LENGTH);
+  // filling array
+  for (i = 0; i < LENGTH; ++i) ss.A[i] = rand() % 256;
 #endif
 
   ss.length = LENGTH;
   ss.ISA = malloc(sizeof(unsigned) * LENGTH);
 
-  // filling array
-  unsigned i;
-#if 0
-  for (i = 0; i < LENGTH; ++i) ss.A[i] = rand() % 256;
-#endif
 
   printf("initial_array\n");
   display_A(&ss, 10);

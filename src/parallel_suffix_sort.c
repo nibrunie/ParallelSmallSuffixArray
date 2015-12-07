@@ -106,6 +106,20 @@ unsigned get_median3_index(suffix_struct_t* ss, unsigned index0, unsigned index1
 
 #define REC_SORT_LIMIT 0
 
+#ifdef DEBUG
+#define DEBUG_MACRO(x) x
+#else 
+#define DEBUG_MACRO(x)
+#endif
+
+void print_suffix_elt(suffix_struct_t* ss, int index) {
+  unsigned arr_index = ss->ISA[index];
+  unsigned i;
+  printf("ISA[%d] = %d -> ", index, arr_index);
+  for (i = 0; i < 4 && arr_index + i < ss->length; ++i) printf("%02d ", ss->A[arr_index + i]);
+  printf("\n");
+}
+
 /** sort suffix array between start and end indexes (included), after initial radix sort 
  *  so first byte of every entry is identical */
 void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
@@ -156,47 +170,68 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
       while (start < end) {
         switch (compare_gtu_suffixes(n, arr, suffix_array[start], suffix_array[init_start], depth)) {
         case -1: // less
+          DEBUG_MACRO(printf("less  ")); 
+          DEBUG_MACRO(print_suffix_elt(ss, start));
           start++; 
           break;
         case  0: // equal
+          DEBUG_MACRO(printf("equal  ")); 
+          DEBUG_MACRO(print_suffix_elt(ss, start));
           swap(equal_start, start);
           start++; equal_start++;
           break;
         case  1: // greater
           {
+          DEBUG_MACRO(printf("greater  ")); 
+          DEBUG_MACRO(print_suffix_elt(ss, start));
           int comp = compare_gtu_suffixes(n, arr, suffix_array[init_start], suffix_array[end], depth); 
           while (comp != 1) {
             // SA[median] <= SA[end]
             
             if (comp == 0) {
               //  SA[median] == SA[end]
+              DEBUG_MACRO(printf("end equal  ")); 
+              DEBUG_MACRO(print_suffix_elt(ss, end));
               swap(equal_end, end);
               end--;
               equal_end--;
             } else {
+              DEBUG_MACRO(printf("end greater  ")); 
+              DEBUG_MACRO(print_suffix_elt(ss, end));
               end--;
             }
+
+            if (start >= end) break;
             
             // updating comp
             comp = compare_gtu_suffixes(n, arr, suffix_array[init_start], suffix_array[end], depth); 
           }
-          if (start < end) swap(start, end);
-          start++;
-          end--;
+          if (start < end) {
+            DEBUG_PRINTF("swapping start/end ISA[%d] = %d <-> %d = ISA[%d]  \n", start, suffix_array[start], suffix_array[end], end);
+            swap(start, end);
+            start++;
+            end--;
+          }
           }
         }
       }
       // FIXME last element
       int comp = compare_gtu_suffixes(n, arr, suffix_array[start], suffix_array[init_start], depth);
       if (comp == 0) {
+        DEBUG_MACRO(printf("last equal  ")); 
+        DEBUG_MACRO(print_suffix_elt(ss, start));
         swap(equal_start, start);
         equal_start++;
         start++;
       } else if (comp == 1) {
         // elt at start greater than median
+        DEBUG_MACRO(printf("last greater  ")); 
+        DEBUG_MACRO(print_suffix_elt(ss, start));
         end--;
       } else {
         // elt at start index, less than median
+        DEBUG_MACRO(printf("last less  ")); 
+        DEBUG_MACRO(print_suffix_elt(ss, start));
         start++;
       };
       DEBUG_PRINTF("end of median-based move [%d:%d][%d:%d][%d:%d][%d:%d]\n", init_start, equal_start - 1, equal_start, start - 1, start, equal_end, equal_end + 1, init_end);
