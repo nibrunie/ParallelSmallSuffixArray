@@ -41,6 +41,10 @@ int check_sort(suffix_struct_t* ss) {
 }
 
 
+#ifndef NUM_THREADS
+#define NUM_THREADS 1
+#endif
+
 int main(void) {
   suffix_struct_t ss;
   unsigned i;
@@ -51,7 +55,7 @@ int main(void) {
   unsigned char table[] = {232, 232, 10, 232, 9, 232};
   ss.A = table; 
 #else
-  const unsigned LENGTH = 100000;
+  const unsigned LENGTH = 10000000;
   ss.A = malloc(sizeof(unsigned char) * LENGTH);
   // filling array
   for (i = 0; i < LENGTH; ++i) ss.A[i] = rand() % 256;
@@ -65,7 +69,7 @@ int main(void) {
   display_A(&ss, 10);
   
 
-  simple_sort(&ss, 1);
+  simple_sort(&ss, NUM_THREADS);
   printf("sorted array\n");
   display_ISA(&ss, 10, 10);
 

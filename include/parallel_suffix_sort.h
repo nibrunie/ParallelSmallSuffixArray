@@ -24,6 +24,7 @@ typedef struct {
  */
 void parallel_sort(suffix_struct_t* ss);
 
+void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth);
 
 void simple_sort(suffix_struct_t* ss, const int n_thread); 
 

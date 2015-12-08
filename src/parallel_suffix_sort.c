@@ -1,13 +1,33 @@
 #include "parallel_suffix_sort.h"
+#include "pthread.h"
 
 // size of the (byte) frequency table
 #define FTAB_SIZE 256
+#define MAX_THREADS 16
 
 #ifdef DEBUG
 #define DEBUG_PRINTF printf
 #else 
 #define DEBUG_PRINTF 
 #endif
+
+typedef struct {
+  suffix_struct_t* ss;
+  int* ftab;
+  int start_index, end_index, depth;
+} thread_arg_t;
+
+void thread_sort(thread_arg_t *ta) {
+  unsigned i;
+  DEBUG_PRINTF("thread sort [%d:%d] \n", ta->start_index, ta->end_index);
+
+  for (i = ta->start_index; i < ta->end_index; i++) {
+    if (ta->ftab[i] - ta->ftab[i-1] > 0) sub_sort(ta->ss, ta->ftab[i-1], ta->ftab[i] - 1, ta->depth);
+  }
+
+  pthread_exit(0);
+  return;
+}
 
 /** 
  * @return greater than unsigned comparison results between suffixes
@@ -40,27 +60,44 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   // frequency tab
   unsigned ftab[FTAB_SIZE+1] = {0};
 
-  unsigned thread_last_index[MAX_THREADS];
 
   unsigned i;
   for (i = 0; i < n; ++i) {
     ftab[arr[i]] += 1; 
   }
 
-  unsigned opt_thread_count = n / n_thread;
-
+  int thread_last_index[MAX_THREADS+1];
+  thread_last_index[0] = 1;
+  unsigned opt_thread_count = (n + n_thread) / n_thread;
   unsigned thread_count = 0;
 
 
-  /** The following steps do bucket sorting 
+  /** The following steps do bucket sorting and thread repartition 
    *  Each bucket contains the suffix starting with an identical byte
    *  Bucket <i> contains suffixes starting with the i-th byte
    */
-
+  int local_thread_count = ftab[0];
+  int current_thread = 0;
   // incremental ftab
   for (i = 1; i < FTAB_SIZE + 1; i++) {
+    local_thread_count += ftab[i];
     ftab[i] += ftab[i-1]; 
+
+    if (local_thread_count >= opt_thread_count) {
+      thread_last_index[current_thread+1] = i; 
+      local_thread_count = 0;
+      current_thread++;
+    }
+    
   }
+
+  thread_last_index[current_thread+1] = FTAB_SIZE + 1;
+  DEBUG_PRINTF("opt_thread_count=%d thread_count=%d\n", opt_thread_count, thread_count);
+  DEBUG_PRINTF("thread last index \n");
+  DEBUG_PRINTF("n_thread=%d\n", n_thread);
+  for (i = 0; i < MAX_THREADS + 1; ++i) DEBUG_PRINTF("%d ", thread_last_index[i]);
+  DEBUG_PRINTF("\n");
+
 
   /** ftab[i] contains the (last index + 1) of the i-th  buckets */
 
@@ -79,6 +116,28 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   for (i = 0; i < n; ++i) DEBUG_PRINTF("%d ", arr[suffix_array[i]]);
   DEBUG_PRINTF("\n");
 
+
+#if 1
+  pthread_t threads[MAX_THREADS];
+  thread_arg_t threads_args[MAX_THREADS];
+
+  for (i = 0; i < n_thread; ++i) {
+
+    threads_args[i].ss = ss;
+    threads_args[i].start_index = thread_last_index[i];
+    threads_args[i].end_index   = thread_last_index[i+1];
+    threads_args[i].ftab        = ftab;
+    threads_args[i].depth       = 1;
+
+    pthread_create(threads + i, NULL, thread_sort, threads_args + i);
+
+  }
+
+  for (i = 0; i < n_thread; ++i) {
+    pthread_join(threads[i], NULL);
+  };
+
+#else
   /** now suffix starting with byte <i> are listed
    * between indexes ftab[i] and ftab[i+1] - 1 in suffix_array
    */
@@ -86,7 +145,10 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
     if (ftab[i] - ftab[i-1] > 0) sub_sort(ss, ftab[i-1], ftab[i] - 1, 0);
   }
 
+#endif
+
 }
+
 
 /** return the median (index) of 3 elements */
 unsigned get_median3_index(suffix_struct_t* ss, unsigned index0, unsigned index1, unsigned index2, unsigned depth) {
