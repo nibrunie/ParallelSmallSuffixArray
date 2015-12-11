@@ -15,4 +15,4 @@ typedef struct {
 /* full suffix store using prefix doubling technique similar
  * to Sadakane's method
  */
-void prefix_full_sort(prefix_suffix_t* ps) 
+void prefix_full_sort(prefix_suffix_t* ps); 

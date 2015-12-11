@@ -1,5 +1,6 @@
 #include "parallel_suffix_sort.h"
 #include "pthread.h"
+#include <stdio.h>
 
 // size of the (byte) frequency table
 #define FTAB_SIZE 256
@@ -11,22 +12,29 @@
 #define DEBUG_PRINTF 
 #endif
 
+
+#ifdef __k1__
+#include <HAL/hal/hal.h>
+#endif
+
+
 typedef struct {
   suffix_struct_t* ss;
   int* ftab;
   int start_index, end_index, depth;
 } thread_arg_t;
 
-void thread_sort(thread_arg_t *ta) {
+void* thread_sort(void* arg) {
+  thread_arg_t *ta = (void*) arg;
   unsigned i;
   DEBUG_PRINTF("thread sort [%d:%d] \n", ta->start_index, ta->end_index);
 
   for (i = ta->start_index; i < ta->end_index; i++) {
-    if (ta->ftab[i] - ta->ftab[i-1] > 0) sub_sort(ta->ss, ta->ftab[i-1], ta->ftab[i] - 1, ta->depth);
+    if (ta->ftab[i] - ta->ftab[i-1] > 0) sub_sort(ta->ss, ta->ftab[i-1], ta->ftab[i] - 1, ta->depth, PARAM_LIMIT_OK);
   }
 
   pthread_exit(0);
-  return;
+  return NULL;
 }
 
 /** 
@@ -46,18 +54,81 @@ int compare_gtu_suffixes_full(unsigned n, unsigned char* arr, unsigned s1, unsig
  * @param  s1 start index of first suffix
  * @param  s2 start index of second suffix
  */
-int compare_gtu_suffixes(unsigned n, unsigned char* arr, unsigned s1, unsigned s2, unsigned depth) {
+static inline int compare_gtu_suffixes(unsigned n, unsigned char* arr, unsigned s1, unsigned s2, unsigned depth) {
   if (s2 + depth >= n) return 1;
   else if (s1 + depth >= n) return -1;
   else if (arr[s1+depth] == arr[s2+depth]) return 0;
   else return (arr[s1+depth] > arr[s2+depth]) ? 1 : -1;
 }
 
+
+#define COMP_EXT 8
+#define BMM_SWAP_MATRIX 0x0102040810204080ull
+
+static inline int compare_gtu_suffixes_extended(unsigned n, unsigned char* arr, unsigned s0, unsigned s1, unsigned depth) {
+  int index0 = s0 + depth >= n ? (s0 + depth - n) : s0 + depth;  
+  int index1 = s1 + depth >= n ? (s1 + depth - n) : s1 + depth;
+  unsigned long long v0 = *((unsigned long long*) (arr + index0));
+  unsigned long long v1 = *((unsigned long long*) (arr + index1));
+  v0 = __builtin_k1_sbmm8_d(v0, BMM_SWAP_MATRIX);
+  v1 = __builtin_k1_sbmm8_d(v1, BMM_SWAP_MATRIX);
+
+  if (v0 > v1) return 1;
+  if (v0 == v1) return 0;
+  return -1;
+}
+
+static inline unsigned long long get_suffix_extended_key(unsigned n , unsigned char* arr, unsigned pre_index, unsigned depth) {
+  int index = pre_index + depth >= n ? (pre_index + depth - n) : pre_index + depth;  
+  unsigned long long value = *((unsigned long long*) (arr + index));
+  value = __builtin_k1_sbmm8_d(value, BMM_SWAP_MATRIX);
+
+  return value;
+}
+
+static inline int compare_gtu_suffixes_extended_index_value(unsigned n, unsigned char* arr, unsigned s0, unsigned long long v1, unsigned depth) {
+  int index0 = s0 + depth >= n ? (s0 + depth - n) : s0 + depth;  
+  unsigned long long v0 = *((unsigned long long*) (arr + index0));
+  v0 = __builtin_k1_sbmm8_d(v0, BMM_SWAP_MATRIX);
+
+  if (v0 > v1) return 1;
+  if (v0 == v1) return 0;
+  return -1;
+}
+
+static inline int compare_gtu_suffixes_extended_value_index(unsigned n, unsigned char* arr, unsigned long long v0, unsigned s1, unsigned depth) {
+  int index1 = s1 + depth >= n ? (s1 + depth - n) : s1 + depth;
+  unsigned long long v1 = *((unsigned long long*) (arr + index1));
+  v1 = __builtin_k1_sbmm8_d(v1, BMM_SWAP_MATRIX);
+
+  if (v0 > v1) return 1;
+  if (v0 == v1) return 0;
+  return -1;
+}
+
+
+static inline int compare_gtu_suffixes_value_index(unsigned n, unsigned char* arr, unsigned char value, unsigned s2, unsigned depth) {
+  if (s2 + depth >= n) return 1;
+  else if (value == arr[s2+depth]) return 0;
+  else return (value > arr[s2+depth]) ? 1 : -1;
+}
+
+static inline int compare_gtu_suffixes_index_value(unsigned n, unsigned char* arr, unsigned s1, unsigned char value, unsigned depth) {
+  if (s1 + depth >= n) return -1;
+  else if (arr[s1+depth] == value) return 0;
+  else return (arr[s1+depth] > value) ? 1 : -1;
+}
+
+
 void simple_sort(suffix_struct_t* ss, const int n_thread) {
   unsigned n = ss->length;
   unsigned char* arr = ss->A;
   unsigned *suffix_array = ss->ISA;
   // frequency tab
+#ifdef TIMING
+  unsigned long long timing = __k1_read_dsu_timestamp();
+#endif
+
   unsigned ftab[FTAB_SIZE+1] = {0};
 
 
@@ -65,6 +136,7 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   for (i = 0; i < n; ++i) {
     ftab[arr[i]] += 1; 
   }
+
 
   int thread_last_index[MAX_THREADS+1];
   thread_last_index[0] = 1;
@@ -116,6 +188,10 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   for (i = 0; i < n; ++i) DEBUG_PRINTF("%d ", arr[suffix_array[i]]);
   DEBUG_PRINTF("\n");
 
+#ifdef TIMING
+  timing = __k1_read_dsu_timestamp() - timing;
+  printf("initial sort timing is %llu\n", timing);
+#endif
 
 #if 1
   pthread_t threads[MAX_THREADS];
@@ -129,11 +205,16 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
     threads_args[i].ftab        = ftab;
     threads_args[i].depth       = 1;
 
-    pthread_create(threads + i, NULL, thread_sort, threads_args + i);
-
+    if (i != n_thread - 1) pthread_create(threads + i, NULL, thread_sort, threads_args + i);
+    else {
+      thread_arg_t* ta = threads_args + i;
+      for (i = ta->start_index; i < ta->end_index; i++) {
+        if (ta->ftab[i] - ta->ftab[i-1] > 0) sub_sort(ta->ss, ta->ftab[i-1], ta->ftab[i] - 1, ta->depth, PARAM_LIMIT_OK);
+      };
+    }
   }
 
-  for (i = 0; i < n_thread; ++i) {
+  for (i = 0; i < n_thread - 1; ++i) {
     pthread_join(threads[i], NULL);
   };
 
@@ -142,7 +223,7 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
    * between indexes ftab[i] and ftab[i+1] - 1 in suffix_array
    */
   for (i = 1; i < FTAB_SIZE + 1; i++) {
-    if (ftab[i] - ftab[i-1] > 0) sub_sort(ss, ftab[i-1], ftab[i] - 1, 0);
+    if (ftab[i] - ftab[i-1] > 0) sub_sort(ss, ftab[i-1], ftab[i] - 1, 1);
   }
 
 #endif
@@ -166,7 +247,6 @@ unsigned get_median3_index(suffix_struct_t* ss, unsigned index0, unsigned index1
 }
 
 
-#define REC_SORT_LIMIT 0
 
 #ifdef DEBUG
 #define DEBUG_MACRO(x) x
@@ -182,27 +262,133 @@ void print_suffix_elt(suffix_struct_t* ss, int index) {
   printf("\n");
 }
 
+/** suffix sort when | end - start | is limited ( < REC_SORT_LIMIT)
+ *  @param ss suffix sort structure (containing input parameters and suffix arrays)
+ *  @param start starting position in suffix_array of the list to be sorted
+ *  @param end   ending position in suffix_array of the list to be sorted
+ */
+static inline int sub_sort_short_2(suffix_struct_t* ss, int start, int end, unsigned depth) {
+  int index0 = ss->ISA[start];
+  int elt0   = ss->A[index0+depth];
+
+  int index1 = ss->ISA[start + 1];
+  int elt1   = ss->A[index1+depth];
+  // failure
+  if (elt0 == elt1) return 1;
+  // success
+  if (elt0 > elt1) { 
+    ss->ISA[start] = index1;
+    ss->ISA[start+1] = index0;
+  };
+  return 0;
+}
+
+static inline int sub_sort_short_3(suffix_struct_t* ss, int start, int end, unsigned depth) {
+  int index0 = ss->ISA[start];
+  int elt0   = ss->A[index0+depth];
+
+  int index1 = ss->ISA[start + 1];
+  int elt1   = ss->A[index1+depth];
+  // failure
+  if (elt0 == elt1) return 1;
+  // success
+  if (elt0 > elt1) { 
+    ss->ISA[start] = index1;
+    ss->ISA[start+1] = index0;
+  };
+  return 0;
+}
+
+void sub_sort_short_4(suffix_struct_t* ss, int start, int end, unsigned depth) {
+  int index0 = ss->ISA[start];
+  int elt0   = ss->A[index0+depth];
+
+  int index1 = ss->ISA[start + 1];
+  int elt1   = ss->A[index1+depth];
+
+  int index2 = ss->ISA[start + 2];
+  int elt2   = ss->A[index2+depth];
+
+  int index3 = ss->ISA[start + 3];
+  int elt3   = ss->A[index3+depth];
+
+}
+
+#ifndef REC_SORT_LIMIT
+#define REC_SORT_LIMIT 12
+#endif
+
+unsigned long long value_array_cluster[16][REC_SORT_LIMIT+1];
+
+int sub_sort_fast(suffix_struct_t* ss, int start, int end, unsigned depth) {
+  unsigned i, j;
+  // using 4 byte sort value
+  register uint64_t bmm_swap_endianess = 0x0102040810204080ull;
+  unsigned long long* value_array = value_array_cluster[__k1_get_cpu_id()];
+
+  for (i = start; i <= end; ++i) {
+    value_array[i - start] = __builtin_k1_sbmm8_d(*((unsigned long long*) (ss->A + ss->ISA[i])), bmm_swap_endianess);
+
+  };
+  for (i = start; i < end; ++i) {
+    int min_index = i;
+
+    unsigned long long min_value = value_array[i - start];
+    for (j = i+1; j <= end; j++) {
+      unsigned long long current_value = value_array[j - start];
+      if (current_value < min_value) {
+        min_index = j;
+        min_value = current_value;
+      } else if (current_value == min_value) {
+        // failed (not deep enough) 
+        return 0;
+      }
+    }
+    int tmp = ss->ISA[i];
+    value_array[min_index - start] = value_array[i - start];
+    ss->ISA[i] = ss->ISA[min_index];
+    ss->ISA[min_index] = tmp;
+  }
+  // sort succesful
+  return 1;
+}
+
+
+#ifndef MEDIAN_LIMIT
+#define MEDIAN_LIMIT 8
+#endif
+
+
+int max_depth = 0;
 /** sort suffix array between start and end indexes (included), after initial radix sort 
  *  so first byte of every entry is identical */
-void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
-    DEBUG_PRINTF("call to sub_sort [%d:%d] (depth = %d)\n", start, end, depth);
-    unsigned* suffix_array = ss->ISA;
-    unsigned char* arr = ss->A;
-    unsigned n = ss->length;
+void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth, int param) {
+  DEBUG_PRINTF("call to sub_sort [%d:%d] (depth = %d)\n", start, end, depth);
+  //if (depth > max_depth) max_depth = depth;
+  unsigned* suffix_array = ss->ISA;
+  unsigned char* arr = ss->A;
+  unsigned n = ss->length;
 
-    int  init_start = start, init_end = end;
-   if (start >= end) {
+  int  init_start = start, init_end = end;
+  if (start >= end) {
     DEBUG_PRINTF("  start <= end: early exit\n");
     return;
-
-   } else if (end - start < REC_SORT_LIMIT) {
-      // FXIME
    } else {
+      if (end - start < REC_SORT_LIMIT && param == PARAM_LIMIT_OK) {
+        if (sub_sort_fast(ss, start, end, depth)) return;
+        else param = PARAM_LIMIT_NO;
+      }
+      // FXIME
+      //
       // choose pivot
       //unsigned start_index = suffix_array[start];
       //unsigned end_index   = suffix_array[end];
       unsigned middle_index = start + (end - start) / 2;
 
+      unsigned equal_start = start;
+      unsigned equal_end   = end;
+
+      /*
       // probabilistic median
       unsigned median_index = get_median3_index(ss, start, end, middle_index, depth);
 
@@ -218,8 +404,41 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
       suffix_array[median_index] = front_index;
       start++;
 
-      unsigned equal_start = start;
-      unsigned equal_end   = end;
+
+      //unsigned char median_value = arr[suffix_array[init_start]+depth];
+
+
+      int corrected_index = suffix_array[init_start] + depth >= n ? (suffix_array[init_start] + depth - n) : suffix_array[init_start] + depth;
+      unsigned long long median_value = *((unsigned long long*) (arr + corrected_index));
+      median_value = __builtin_k1_sbmm8_d(median_value, BMM_SWAP_MATRIX);
+      */
+      unsigned long long median_value = 127;
+      /*if (end - start > MEDIAN_LIMIT) {
+
+        int corrected_start_index = suffix_array[init_start] + depth >= n ? (suffix_array[init_start] + depth - n) : suffix_array[init_start] + depth;
+        unsigned long long start_value = *((unsigned long long*) (arr + corrected_start_index));
+        start_value = __builtin_k1_sbmm8_d(start_value, BMM_SWAP_MATRIX);
+
+        int corrected_end_index = suffix_array[init_end] + depth >= n ? (suffix_array[init_end] + depth - n) : suffix_array[init_end] + depth;
+        unsigned long long end_value = *((unsigned long long*) (arr + corrected_end_index));
+        end_value = __builtin_k1_sbmm8_d(end_value, BMM_SWAP_MATRIX);
+
+        int corrected_middle_index = suffix_array[middle_index] + depth >= n ? (suffix_array[middle_index] + depth - n) : suffix_array[middle_index] + depth;
+        unsigned long long middle_value = *((unsigned long long*) (arr + corrected_middle_index));
+        middle_value = __builtin_k1_sbmm8_d(middle_value, BMM_SWAP_MATRIX);
+
+        median_value = end_value;
+        if ((start_value > end_value) != (start_value > middle_value)) median_value = start_value;
+        if ((middle_value > end_value) != (middle_value > end_value)) median_value = middle_value;
+      } else {
+      */
+        int corrected_middle_index = suffix_array[middle_index] + depth >= n ? (suffix_array[middle_index] + depth - n) : suffix_array[middle_index] + depth;
+        unsigned long long middle_value = *((unsigned long long*) (arr + corrected_middle_index));
+        middle_value = __builtin_k1_sbmm8_d(middle_value, BMM_SWAP_MATRIX);
+        median_value = middle_value;
+
+      //}
+
 
 #define swap(x, y) {\
   unsigned tmp_index = suffix_array[x];\
@@ -230,23 +449,29 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
 
       // partionning according to the median
       while (start < end) {
-        switch (compare_gtu_suffixes(n, arr, suffix_array[start], suffix_array[init_start], depth)) {
-        case -1: // less
+        //switch (compare_gtu_suffixes_index_value(n, arr, suffix_array[start], median_value, depth)) {
+        //unsigned long long get_suffix_extended_key(unsigned n , unsigned char* arr, unsigned index, unsigned depth) {
+        unsigned long long start_value = get_suffix_extended_key(n, arr, suffix_array[start], depth); 
+        //switch (compare_gtu_suffixes_extended_index_value(n, arr, suffix_array[start], median_value, depth)) {
+        //case -1: // less than median
+        if (start_value < median_value) {
           DEBUG_MACRO(printf("less  ")); 
           DEBUG_MACRO(print_suffix_elt(ss, start));
           start++; 
-          break;
-        case  0: // equal
+        //  break;
+        //case  0: // equal to median
+        } else if (start_value == median_value) {
           DEBUG_MACRO(printf("equal  ")); 
           DEBUG_MACRO(print_suffix_elt(ss, start));
           swap(equal_start, start);
           start++; equal_start++;
-          break;
-        case  1: // greater
-          {
+        //  break;
+        //case  1: // greater than median
+        } else {
           DEBUG_MACRO(printf("greater  ")); 
           DEBUG_MACRO(print_suffix_elt(ss, start));
-          int comp = compare_gtu_suffixes(n, arr, suffix_array[init_start], suffix_array[end], depth); 
+          // int comp = compare_gtu_suffixes_extended_value_index(n, arr, median_value, suffix_array[end], depth); 
+          unsigned long long end_value = get_suffix_extended_key(n, arr, suffix_array[end], depth); 
           while (comp != 1) {
             // SA[median] <= SA[end]
             
@@ -266,7 +491,8 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
             if (start >= end) break;
             
             // updating comp
-            comp = compare_gtu_suffixes(n, arr, suffix_array[init_start], suffix_array[end], depth); 
+            //comp = compare_gtu_suffixes_value_index(n, arr, median_value, suffix_array[end], depth); 
+            comp = compare_gtu_suffixes_extended_value_index(n, arr, median_value, suffix_array[end], depth); 
           }
           if (start < end) {
             DEBUG_PRINTF("swapping start/end ISA[%d] = %d <-> %d = ISA[%d]  \n", start, suffix_array[start], suffix_array[end], end);
@@ -274,11 +500,12 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
             start++;
             end--;
           }
-          }
+          //}
         }
       }
       // FIXME last element
-      int comp = compare_gtu_suffixes(n, arr, suffix_array[start], suffix_array[init_start], depth);
+      //int comp = compare_gtu_suffixes_index_value(n, arr, suffix_array[start], median_value, depth);
+      int comp = compare_gtu_suffixes_extended_index_value(n, arr, suffix_array[start], median_value, depth);
       if (comp == 0) {
         DEBUG_MACRO(printf("last equal  ")); 
         DEBUG_MACRO(print_suffix_elt(ss, start));
@@ -317,11 +544,11 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth) {
 
       /** recursive sort of the three sub parts */
       // less-than sort
-      sub_sort(ss, init_start, start - left_equal_count - 1, depth); 
+      sub_sort(ss, init_start, start - left_equal_count - 1, depth, param); 
       // equal-to sort
-      sub_sort(ss, start - left_equal_count, start + right_equal_count - 1, depth + 1);
+      sub_sort(ss, start - left_equal_count, start + right_equal_count - 1, depth + 8, param);
       // greater-than sort
-      sub_sort(ss, start + right_equal_count, init_end, depth);
+      sub_sort(ss, start + right_equal_count, init_end, depth, param);
       
 
    }

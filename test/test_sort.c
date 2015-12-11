@@ -40,9 +40,21 @@ int check_sort(suffix_struct_t* ss) {
   return -1;
 }
 
+#ifdef __k1__
+#include <HAL/hal/hal.h>
+#define cycles() __k1_read_dsu_timestamp()
+#endif
+
+
 
 #ifndef NUM_THREADS
 #define NUM_THREADS 1
+#endif
+
+#define OVERSHOOT 8
+
+#ifndef TEST_LENGTH
+#define TEST_LENGTH 20
 #endif
 
 int main(void) {
@@ -50,26 +62,30 @@ int main(void) {
   unsigned i;
 
 #if 0
-  const unsigned LENGTH = 6;
+  const unsigned LENGTH = 9;
   //unsigned char table[] = {'B', 'A', 'N', 'A', 'N', 'A', '\0'}; 
-  unsigned char table[] = {232, 232, 10, 232, 9, 232};
+  unsigned char table[] = {232, 232, 8, 232, 232, 7, 232, 232, 10};
   ss.A = table; 
 #else
-  const unsigned LENGTH = 10000000;
-  ss.A = malloc(sizeof(unsigned char) * LENGTH);
+  const unsigned LENGTH = TEST_LENGTH;
+  ss.A = malloc(sizeof(unsigned char) * LENGTH + OVERSHOOT);
   // filling array
   for (i = 0; i < LENGTH; ++i) ss.A[i] = rand() % 256;
 #endif
 
   ss.length = LENGTH;
-  ss.ISA = malloc(sizeof(unsigned) * LENGTH);
+  ss.ISA = malloc(sizeof(unsigned) * LENGTH + OVERSHOOT);
 
 
   printf("initial_array\n");
   display_A(&ss, 10);
   
-
+  unsigned long long timing = __k1_read_dsu_timestamp();
   simple_sort(&ss, NUM_THREADS);
+  timing = __k1_read_dsu_timestamp() - timing;
+
+  printf("timing is %llu / %.3e cycles\n", timing, (double) timing);
+
   printf("sorted array\n");
   display_ISA(&ss, 10, 10);
 
@@ -84,9 +100,11 @@ int main(void) {
     printf("ISA[%d] = %d \n", check_status+1, index1);
     for (i = 0; i < 5; ++i) printf("%02u ", ss.A[index1+i]);
     printf("\n\n");
-
+    return 1;
   }
   else printf("sorted order is OK\n");
+
+  printf("max_depth = %d\n", max_depth);
 
   return 0;
 }

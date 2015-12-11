@@ -13,6 +13,8 @@ typedef struct {
 
   /* inverse suffix array */
   unsigned* ISA;
+  unsigned* SA;
+  int*      N;
 
   /* array length */
   unsigned length;
@@ -24,8 +26,13 @@ typedef struct {
  */
 void parallel_sort(suffix_struct_t* ss);
 
-void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth);
+void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth, int param);
 
 void simple_sort(suffix_struct_t* ss, const int n_thread); 
+
+extern int max_depth;
+
+#define PARAM_LIMIT_OK 1
+#define PARAM_LIMIT_NO 2
 
 #endif /* ndef __PARALLEL_SUFFIX_SORT_H__ */

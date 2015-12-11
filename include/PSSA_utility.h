@@ -1,4 +1,5 @@
-#ifdef __DEBUG_H__
+#ifndef __DEBUG_H__
+#define __DEBUG_H__
 
 #ifdef DEBUG
 #define DEBUG_PRINTF printf
@@ -7,4 +8,4 @@
 #endif
 
 
-#endif
+#endif /* ndef __DEBUG_H__ */
