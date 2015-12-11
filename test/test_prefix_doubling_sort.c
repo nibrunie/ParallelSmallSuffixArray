@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "prefix_doubling_sort.h"
+#include <inttypes.h>
 
 
-void display_A(prefix_suffix_t* ps, int num) {
+void display_ps_A(prefix_suffix_t* ps, int num) {
   unsigned i;
   for (i = 0; i < ps->length && i < num; ++i) {
     printf("%02u ", ps->A[i]);
@@ -11,7 +12,7 @@ void display_A(prefix_suffix_t* ps, int num) {
   printf("\n");
 }
 
-void display_ISA(prefix_suffix_t* ps, int num, int depth) {
+void display_ps_ISAA(prefix_suffix_t* ps, int num, int depth) {
   unsigned i;
   for (i = 0; i < ps->length && i < num; ++i) {
     printf("%02u[%d] ", ps->A[ps->ISA[i]], ps->ISA[i]);
@@ -22,7 +23,7 @@ void display_ISA(prefix_suffix_t* ps, int num, int depth) {
   printf("\n");
 }
 
-int suffix_compare_gtu(prefix_suffix_t* ps, int index0, int index1) {
+int ps_compare_suffix_gtu(prefix_suffix_t* ps, int index0, int index1) {
   int i = ps->ISA[index0];
   int j = ps->ISA[index1];
   while (i < ps->length && j < ps->length && ps->A[i] == ps->A[j]) { i++;  j++;};
@@ -32,9 +33,9 @@ int suffix_compare_gtu(prefix_suffix_t* ps, int index0, int index1) {
 
 };
 
-int check_sort(prefix_suffix_t* ps) {
+int check_ps_sort(prefix_suffix_t* ps) {
   unsigned i = 0; 
-  for (i = 0; i < ps->length - 1; i++) if (!suffix_compare_gtu(ps, i+1, i)) return i;
+  for (i = 0; i < ps->length - 1; i++) if (!ps_compare_suffix_gtu(ps, i+1, i)) return i;
 
   return -1;
 }
@@ -43,7 +44,12 @@ int check_sort(prefix_suffix_t* ps) {
 #include <HAL/hal/hal.h>
 #define cycles() __k1_read_dsu_timestamp()
 #else
-#define cycles() (-1)
+static inline uint64_t cycles()
+{
+  uint64_t t;
+  __asm volatile ("rdtsc" : "=A"(t));
+  return t;
+}
 #endif
 
 
@@ -55,7 +61,7 @@ int check_sort(prefix_suffix_t* ps) {
 #define OVERSHOOT 8
 
 #ifndef TEST_LENGTH
-#define TEST_LENGTH 10
+#define TEST_LENGTH 100000
 #endif
 
 #ifndef MOD
@@ -90,7 +96,7 @@ int main(void) {
 
 
   printf("initial_array\n");
-  display_A(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH);
+  display_ps_A(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH);
   
   unsigned long long timing = cycles();
   prefix_full_sort(&ps);
@@ -99,9 +105,9 @@ int main(void) {
   printf("timing is %llu / %.3e cycles\n", timing, (double) timing);
 
   printf("sorted array\n");
-  display_ISA(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH, 10);
+  display_ps_ISAA(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH, 10);
 
-  int check_status = check_sort(&ps);
+  int check_status = check_ps_sort(&ps);
   if (check_status != -1) {
     printf("sorted order is wrong at index %d\n", check_status);
     int index0 = ps.ISA[check_status];
