@@ -13,9 +13,14 @@
 #if 1
 static inline uint64_t cycles()
 {
-  uint64_t t;
-  __asm volatile ("rdtsc" : "=A"(t));
-  return t;
+  uint64_t a, d;
+  __asm__ volatile (
+    "rdtsc" 
+    : "=a"(a), "=d"(d)
+    : 
+    : "memory"
+  );
+  return (d << 32) | a;
 }
 /* x is a 64-bit unsigned value whose endianess
  * is swapped */

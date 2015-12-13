@@ -241,6 +241,17 @@ static inline int get_prefix_key(prefix_suffix_t* ps, int index, int depth)
   SA[ISA[y]] = y; \
 }
 
+
+/** sort ISA for short array using theoretically slower algorithm */
+void prefix_sub_sort_fast(prefix_suffix_t* ps, int start, int end, int depth, int previous_N, int increase, int* rcount) {
+  int i;
+  /*for (i = start; i <= end; ++i) {
+    for (j = i+1; j <= end && key[j] > key; j++)    
+
+  }*/
+
+}
+
 /** sort ISA[start:end] suffixes based with key
  *  for i = N[ISA[i]+depth]
  * @return the newest value of N for the index end
