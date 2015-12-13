@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include "PSSA_utility.h"
 #include "prefix_doubling_sort.h"
 #include <inttypes.h>
 
@@ -40,17 +41,6 @@ int check_ps_sort(prefix_suffix_t* ps) {
   return -1;
 }
 
-#ifdef __k1__
-#include <HAL/hal/hal.h>
-#define cycles() __k1_read_dsu_timestamp()
-#else
-static inline uint64_t cycles()
-{
-  uint64_t t;
-  __asm volatile ("rdtsc" : "=A"(t));
-  return t;
-}
-#endif
 
 
 

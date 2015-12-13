@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "PSSA_utility.h"
 #include "parallel_suffix_sort.h"
 
 
-void display_A(suffix_struct_t* ss, int num) {
+void display_ss_A(suffix_struct_t* ss, int num) {
   unsigned i;
   for (i = 0; i < ss->length && i < num; ++i) {
     printf("%02u ", ss->A[i]);
@@ -12,7 +13,7 @@ void display_A(suffix_struct_t* ss, int num) {
   printf("\n");
 }
 
-void display_ISA(suffix_struct_t* ss, int num, int depth) {
+void display_ss_ISA(suffix_struct_t* ss, int num, int depth) {
   unsigned i;
   for (i = 0; i < ss->length && i < num; ++i) {
     printf("%02u[%d] ", ss->A[ss->ISA[i]], ss->ISA[i]);
@@ -23,7 +24,7 @@ void display_ISA(suffix_struct_t* ss, int num, int depth) {
   printf("\n");
 }
 
-int suffix_compare_gtu(suffix_struct_t* ss, int index0, int index1) {
+int ss_suffix_compare_gtu(suffix_struct_t* ss, int index0, int index1) {
   int i = ss->ISA[index0];
   int j = ss->ISA[index1];
   while (i < ss->length && j < ss->length && ss->A[i] == ss->A[j]) { i++;  j++;};
@@ -33,17 +34,13 @@ int suffix_compare_gtu(suffix_struct_t* ss, int index0, int index1) {
 
 };
 
-int check_sort(suffix_struct_t* ss) {
+int check_ss_sort(suffix_struct_t* ss) {
   unsigned i = 0; 
-  for (i = 0; i < ss->length - 1; i++) if (!suffix_compare_gtu(ss, i+1, i)) return i;
+  for (i = 0; i < ss->length - 1; i++) if (!ss_suffix_compare_gtu(ss, i+1, i)) return i;
 
   return -1;
 }
 
-#ifdef __k1__
-#include <HAL/hal/hal.h>
-#define cycles() __k1_read_dsu_timestamp()
-#endif
 
 
 
@@ -54,7 +51,7 @@ int check_sort(suffix_struct_t* ss) {
 #define OVERSHOOT 8
 
 #ifndef TEST_LENGTH
-#define TEST_LENGTH 20
+#define TEST_LENGTH 100000
 #endif
 
 int main(void) {
@@ -78,18 +75,18 @@ int main(void) {
 
 
   printf("initial_array\n");
-  display_A(&ss, 10);
+  display_ss_A(&ss, 10);
   
-  unsigned long long timing = __k1_read_dsu_timestamp();
+  unsigned long long timing = cycles();
   simple_sort(&ss, NUM_THREADS);
-  timing = __k1_read_dsu_timestamp() - timing;
+  timing = cycles() - timing;
 
   printf("timing is %llu / %.3e cycles\n", timing, (double) timing);
 
   printf("sorted array\n");
-  display_ISA(&ss, 10, 10);
+  display_ss_ISA(&ss, 10, 10);
 
-  int check_status = check_sort(&ss);
+  int check_status = check_ss_sort(&ss);
   if (check_status != -1) {
     printf("sorted order is wrong at index %d\n", check_status);
     int index0 = ss.ISA[check_status];
