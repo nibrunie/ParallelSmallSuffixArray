@@ -28,7 +28,7 @@ void parallel_sort(suffix_struct_t* ss);
 
 void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth, int param);
 
-void simple_sort(suffix_struct_t* ss, const int n_thread); 
+void ss_simple_sort(suffix_struct_t* ss, const int n_thread); 
 
 extern int max_depth;
 

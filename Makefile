@@ -14,8 +14,8 @@ test_sort: test/test_sort.c src/parallel_suffix_sort.c
 test_prefix_doubling_sort: test/test_prefix_doubling_sort.c $(LIB)
 	$(CC) $(CFLAGS) -I./ -Iinclude -o $@ $^ -pthread
 
-test_bib_sort: test/test_bib_sort.c src/parallel_suffix_sort.c 
-	$(CC) $(CFLAGS) -I./ -o $@ $^ -pthread
+test_bib_sort: test/test_bib_sort.c src/parallel_suffix_sort.c src/suffix_sort_utility.c 
+	$(CC) $(CFLAGS) -include include/suffix_sort_utility.h -I./ -o $@ $^ -pthread
 
 test_bib_prefix_sort: test/test_bib_prefix_sort.c 
 	$(CC) $(CFLAGS) -I./ -o $@ $^ -pthread

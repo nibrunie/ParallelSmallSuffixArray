@@ -118,7 +118,7 @@ static inline int compare_gtu_suffixes_index_value(unsigned n, unsigned char* ar
 }
 
 
-void simple_sort(suffix_struct_t* ss, const int n_thread) {
+void ss_simple_sort(suffix_struct_t* ss, const int n_thread) {
   unsigned n = ss->length;
   unsigned char* arr = ss->A;
   unsigned *suffix_array = ss->ISA;
