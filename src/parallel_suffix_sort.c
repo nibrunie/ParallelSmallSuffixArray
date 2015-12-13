@@ -1,3 +1,4 @@
+#include "PSSA_utility.h"
 #include "parallel_suffix_sort.h"
 #include "pthread.h"
 #include <stdio.h>
@@ -13,9 +14,6 @@
 #endif
 
 
-#ifdef __k1__
-#include <HAL/hal/hal.h>
-#endif
 
 
 typedef struct {
@@ -70,8 +68,8 @@ static inline int compare_gtu_suffixes_extended(unsigned n, unsigned char* arr, 
   int index1 = s1 + depth >= n ? (s1 + depth - n) : s1 + depth;
   unsigned long long v0 = *((unsigned long long*) (arr + index0));
   unsigned long long v1 = *((unsigned long long*) (arr + index1));
-  v0 = __builtin_k1_sbmm8_d(v0, BMM_SWAP_MATRIX);
-  v1 = __builtin_k1_sbmm8_d(v1, BMM_SWAP_MATRIX);
+  v0 = BYTE_SWAP(v0);
+  v1 = BYTE_SWAP(v1);
 
   if (v0 > v1) return 1;
   if (v0 == v1) return 0;
@@ -81,7 +79,7 @@ static inline int compare_gtu_suffixes_extended(unsigned n, unsigned char* arr, 
 static inline unsigned long long get_suffix_extended_key(unsigned n , unsigned char* arr, unsigned pre_index, unsigned depth) {
   int index = pre_index + depth >= n ? (pre_index + depth - n) : pre_index + depth;  
   unsigned long long value = *((unsigned long long*) (arr + index));
-  value = __builtin_k1_sbmm8_d(value, BMM_SWAP_MATRIX);
+  value = BYTE_SWAP(value);
 
   return value;
 }
@@ -89,7 +87,7 @@ static inline unsigned long long get_suffix_extended_key(unsigned n , unsigned c
 static inline int compare_gtu_suffixes_extended_index_value(unsigned n, unsigned char* arr, unsigned s0, unsigned long long v1, unsigned depth) {
   int index0 = s0 + depth >= n ? (s0 + depth - n) : s0 + depth;  
   unsigned long long v0 = *((unsigned long long*) (arr + index0));
-  v0 = __builtin_k1_sbmm8_d(v0, BMM_SWAP_MATRIX);
+  v0 = BYTE_SWAP(v0);
 
   if (v0 > v1) return 1;
   if (v0 == v1) return 0;
@@ -99,7 +97,7 @@ static inline int compare_gtu_suffixes_extended_index_value(unsigned n, unsigned
 static inline int compare_gtu_suffixes_extended_value_index(unsigned n, unsigned char* arr, unsigned long long v0, unsigned s1, unsigned depth) {
   int index1 = s1 + depth >= n ? (s1 + depth - n) : s1 + depth;
   unsigned long long v1 = *((unsigned long long*) (arr + index1));
-  v1 = __builtin_k1_sbmm8_d(v1, BMM_SWAP_MATRIX);
+  v1 = BYTE_SWAP(v1);
 
   if (v0 > v1) return 1;
   if (v0 == v1) return 0;
@@ -126,7 +124,7 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   unsigned *suffix_array = ss->ISA;
   // frequency tab
 #ifdef TIMING
-  unsigned long long timing = __k1_read_dsu_timestamp();
+  unsigned long long timing = cycles();
 #endif
 
   unsigned ftab[FTAB_SIZE+1] = {0};
@@ -189,7 +187,7 @@ void simple_sort(suffix_struct_t* ss, const int n_thread) {
   DEBUG_PRINTF("\n");
 
 #ifdef TIMING
-  timing = __k1_read_dsu_timestamp() - timing;
+  timing = cycles() - timing;
   printf("initial sort timing is %llu\n", timing);
 #endif
 
@@ -318,16 +316,16 @@ void sub_sort_short_4(suffix_struct_t* ss, int start, int end, unsigned depth) {
 #define REC_SORT_LIMIT 12
 #endif
 
-unsigned long long value_array_cluster[16][REC_SORT_LIMIT+1];
+
+__thread unsigned long long value_array[REC_SORT_LIMIT+1];
 
 int sub_sort_fast(suffix_struct_t* ss, int start, int end, unsigned depth) {
   unsigned i, j;
   // using 4 byte sort value
   register uint64_t bmm_swap_endianess = 0x0102040810204080ull;
-  unsigned long long* value_array = value_array_cluster[__k1_get_cpu_id()];
 
   for (i = start; i <= end; ++i) {
-    value_array[i - start] = __builtin_k1_sbmm8_d(*((unsigned long long*) (ss->A + ss->ISA[i])), bmm_swap_endianess);
+    value_array[i - start] = BYTE_SWAP((*((unsigned long long*) (ss->A + ss->ISA[i]))));
 
   };
   for (i = start; i < end; ++i) {
@@ -434,7 +432,7 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth, int param
       */
         int corrected_middle_index = suffix_array[middle_index] + depth >= n ? (suffix_array[middle_index] + depth - n) : suffix_array[middle_index] + depth;
         unsigned long long middle_value = *((unsigned long long*) (arr + corrected_middle_index));
-        middle_value = __builtin_k1_sbmm8_d(middle_value, BMM_SWAP_MATRIX);
+        middle_value = BYTE_SWAP(middle_value);
         median_value = middle_value;
 
       //}
@@ -470,8 +468,8 @@ void sub_sort(suffix_struct_t* ss, int start, int end, unsigned depth, int param
         } else {
           DEBUG_MACRO(printf("greater  ")); 
           DEBUG_MACRO(print_suffix_elt(ss, start));
-          // int comp = compare_gtu_suffixes_extended_value_index(n, arr, median_value, suffix_array[end], depth); 
-          unsigned long long end_value = get_suffix_extended_key(n, arr, suffix_array[end], depth); 
+          int comp = compare_gtu_suffixes_extended_value_index(n, arr, median_value, suffix_array[end], depth); 
+          //unsigned long long end_value = get_suffix_extended_key(n, arr, suffix_array[end], depth); 
           while (comp != 1) {
             // SA[median] <= SA[end]
             
