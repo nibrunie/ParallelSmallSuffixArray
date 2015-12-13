@@ -170,8 +170,9 @@ int prefix_sort_single_pass_decrease(prefix_suffix_t* ps, int depth)
 
 /* full prefix-doubling based implemenation of suffix sort 
  * @param ps prefix structure
+ * @param nthread number of threads used for sorting (only 1 currently supported)
  */
-void prefix_full_sort(prefix_suffix_t* ps) 
+void prefix_full_sort(prefix_suffix_t* ps, int nthread)
 {
 
   ps->n_index = 0;

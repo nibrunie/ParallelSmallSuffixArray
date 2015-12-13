@@ -1,3 +1,5 @@
+#ifndef __PREFIX_DOUBLING_SORT_H__
+#define __PREFIX_DOUBLING_SORT_H__
 
 /* sturcture storing sort inputs and temporary
  * arrays
@@ -14,5 +16,9 @@ typedef struct {
 
 /* full suffix store using prefix doubling technique similar
  * to Sadakane's method
+ * @param ps prefix suffix structure
+ * @param nthread number of thread used for sorting (only 1 is currently supported)
  */
-void prefix_full_sort(prefix_suffix_t* ps); 
+void prefix_full_sort(prefix_suffix_t* ps, int nthread); 
+
+#endif /* __PREFIX_DOUBLING_SORT_H__ */

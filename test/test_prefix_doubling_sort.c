@@ -5,43 +5,6 @@
 #include <inttypes.h>
 
 
-void display_ps_A(prefix_suffix_t* ps, int num) {
-  unsigned i;
-  for (i = 0; i < ps->length && i < num; ++i) {
-    printf("%02u ", ps->A[i]);
-  }
-  printf("\n");
-}
-
-void display_ps_ISAA(prefix_suffix_t* ps, int num, int depth) {
-  unsigned i;
-  for (i = 0; i < ps->length && i < num; ++i) {
-    printf("%02u[%d] ", ps->A[ps->ISA[i]], ps->ISA[i]);
-    unsigned j;
-    for (j = 0; j < depth && ps->ISA[i]+j < ps->length; j++) printf("%02u ", ps->A[ps->ISA[i]+j]);
-    printf("\n");
-  }
-  printf("\n");
-}
-
-int ps_compare_suffix_gtu(prefix_suffix_t* ps, int index0, int index1) {
-  int i = ps->ISA[index0];
-  int j = ps->ISA[index1];
-  while (i < ps->length && j < ps->length && ps->A[i] == ps->A[j]) { i++;  j++;};
-  if (i >= ps->length) return 0;
-  if (j >= ps->length) return 1;
-  return ps->A[i] > ps->A[j];
-
-};
-
-int check_ps_sort(prefix_suffix_t* ps) {
-  unsigned i = 0; 
-  for (i = 0; i < ps->length - 1; i++) if (!ps_compare_suffix_gtu(ps, i+1, i)) return i;
-
-  return -1;
-}
-
-
 
 
 #ifndef NUM_THREADS

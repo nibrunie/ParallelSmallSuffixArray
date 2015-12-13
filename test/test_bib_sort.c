@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "parallel_suffix_sort.h"
 #include "PSSA_utility.h"
 
 #include <test_data/bib_blocksort.h>
@@ -36,8 +35,6 @@ int main(void) {
 
   if (CHECK_AGAINST(&ss, sorted_index_array)) return 1;
 
-
-  printf("max_depth = %d\n", max_depth);
 
   return 0;
 }

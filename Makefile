@@ -17,8 +17,8 @@ test_prefix_doubling_sort: test/test_prefix_doubling_sort.c $(LIB)
 test_bib_sort: test/test_bib_sort.c src/parallel_suffix_sort.c src/suffix_sort_utility.c 
 	$(CC) $(CFLAGS) -include include/suffix_sort_utility.h -I./ -o $@ $^ -pthread
 
-test_bib_prefix_sort: test/test_bib_prefix_sort.c 
-	$(CC) $(CFLAGS) -I./ -o $@ $^ -pthread
+test_bib_prefix_sort: test/test_bib_sort.c src/prefix_doubling_sort.c src/prefix_doubling_utility.c 
+	$(CC) $(CFLAGS) -include include/prefix_doubling_utility.h -I./ -o $@ $^ -pthread
 
 
 clean: 
