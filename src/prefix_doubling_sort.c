@@ -16,9 +16,12 @@ int prefix_sub_sort(prefix_suffix_t* ps, int start, int end, int depth, int prev
 
 #define PREFIX_FTAB_SIZE 256
 
+/* initial sort of the prefix structure, separating 
+ * the Array according to the first character of the suffix 
+ * @param ps prefix structure
+ */
 void prefix_initial_sort(prefix_suffix_t* ps) 
 {
-
   //unsigned long long timing = cycles();
   int ftab[PREFIX_FTAB_SIZE+1] = {0};
   int ftab_cpy[PREFIX_FTAB_SIZE+1] = {0};
@@ -61,6 +64,10 @@ void prefix_initial_sort(prefix_suffix_t* ps)
   //printf("initial sort timing is %llu cycles\n", timing);
 };
 
+/* display prefix sort structure
+ * @param ps prefix structure
+ * @param n_index index of the current N array 
+ */
 void display_ps(prefix_suffix_t* ps, int n_index) 
 {
 #ifdef DEBUG
@@ -88,6 +95,11 @@ void display_ps(prefix_suffix_t* ps, int n_index)
 
 }
 
+
+/* single prefix sort pass in increasing order
+ * @param ps prefix structure 
+ * @param depth offset used in N key retrieving
+ */
 int prefix_sort_single_pass_increase(prefix_suffix_t* ps, int depth) 
 {
   int previous_N = 0;
@@ -121,6 +133,10 @@ int prefix_sort_single_pass_increase(prefix_suffix_t* ps, int depth)
   return rcount;
 }
 
+/* single prefix sort pass in decreasing order
+ * @param ps prefix structure 
+ * @param depth offset used in N key retrieving
+ */
 int prefix_sort_single_pass_decrease(prefix_suffix_t* ps, int depth) 
 {
   int previous_N = 0;
@@ -152,6 +168,9 @@ int prefix_sort_single_pass_decrease(prefix_suffix_t* ps, int depth)
   return rcount;
 }
 
+/* full prefix-doubling based implemenation of suffix sort 
+ * @param ps prefix structure
+ */
 void prefix_full_sort(prefix_suffix_t* ps) 
 {
 
@@ -184,6 +203,11 @@ void prefix_full_sort(prefix_suffix_t* ps)
   }
 }
 
+/* retrieve key related to suffix ording of index in step indicated by depth
+ * @param ps prefix structure
+ * @param index address in the ISA array of the key to be retrieved
+ * @param depth index of the prefix doubling step
+ */
 static inline int get_prefix_key(prefix_suffix_t* ps, int index, int depth) 
 {
   int* ISA = ps->ISA;
@@ -204,6 +228,11 @@ static inline int get_prefix_key(prefix_suffix_t* ps, int index, int depth)
 #endif
 }
 
+/* prefix swapping macro, exchange both ISA (suffix array)
+ * and SA (inverse suffix array) values
+ * @param x first index to be swapped
+ * @param y second index to be swapped
+ */
 #define swap(x, y) {\
   int tmp = ISA[x];\
   ISA[x] = ISA[y];\
