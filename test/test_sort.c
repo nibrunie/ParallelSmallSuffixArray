@@ -78,7 +78,7 @@ int main(void) {
   display_ss_A(&ss, 10);
   
   unsigned long long timing = cycles();
-  simple_sort(&ss, NUM_THREADS);
+  ss_simple_sort(&ss, NUM_THREADS);
   timing = cycles() - timing;
 
   printf("timing is %llu / %.3e cycles\n", timing, (double) timing);

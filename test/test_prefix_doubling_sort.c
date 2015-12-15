@@ -4,6 +4,7 @@
 #include "prefix_doubling_sort.h"
 #include <inttypes.h>
 
+#include "prefix_doubling_utility.h"
 
 
 
@@ -52,13 +53,13 @@ int main(void) {
   display_ps_A(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH);
   
   unsigned long long timing = cycles();
-  prefix_full_sort(&ps);
+  prefix_full_sort(&ps, 1);
   timing = cycles() - timing;
 
   printf("timing is %llu / %.3e cycles\n", timing, (double) timing);
 
   printf("sorted array\n");
-  display_ps_ISAA(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH, 10);
+  display_ps_ISA(&ps, LENGTH > DISPLAY_LENGTH ? DISPLAY_LENGTH : LENGTH, 10);
 
   int check_status = check_ps_sort(&ps);
   if (check_status != -1) {

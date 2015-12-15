@@ -6,7 +6,7 @@
 #include <test_data/bib_blocksort.h>
 
 #ifndef NUM_THREADS
-#define NUM_THREADS 1
+#define NUM_THREADS 4
 #endif
 
 #define OVERSHOOT 8
